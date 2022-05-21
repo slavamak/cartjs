@@ -22,3 +22,18 @@ class Item
   # in advance what they'll be.
   propertyArray: () =>
     ({ name: name, value: value } for name, value of @properties)
+
+  isGiftWrap: () =>
+    if CartJS.settings.giftWrap? and CartJS.settings.giftWrap is @variant_id
+      true
+    else
+      false
+
+  giftWrap: () =>
+    if CartJS.settings.giftWrap?
+      for item in CartJS.cart.items
+        if item.variant_id is CartJS.settings.giftWrap and item.properties['Product title'] is @product_title
+          return item
+      null
+    else
+      null

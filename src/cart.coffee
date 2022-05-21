@@ -11,4 +11,5 @@ class Cart
     for key, value of cart
       unless key == 'items'
         @[key] = value
+    @item_count_without_gift_wrap = @item_count - CartJS.Utils.giftWrapCount(cart.items)
     @items = (new Item(item) for item in cart.items)

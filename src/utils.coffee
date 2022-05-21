@@ -120,3 +120,16 @@ CartJS.Utils =
       if src then Shopify.Image.getSizedImageUrl(src, size) else Shopify.Image.getSizedImageUrl('https://cdn.shopify.com/s/images/admin/no-image-.gif', size).replace('-_', '-')
     else
       if src then src else 'https://cdn.shopify.com/s/images/admin/no-image-large.gif'
+
+  giftWrapCount: (items) ->
+    giftWrapId = CartJS.settings.giftWrap
+    count = 0
+    if giftWrapId?
+      for item in items
+        if item.variant_id is giftWrapId
+          count += item.quantity
+    return count
+
+  getAssociatedGiftWrapWithItem: (items, line) ->
+    item = items.find((_, index) => index + 1 is parseInt line, 10 )
+    return {item, giftWrap: item?.giftWrap()}

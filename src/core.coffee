@@ -27,16 +27,37 @@ CartJS.Core =
 
   # Update an existing line item.
   updateItem: (line, quantity, properties = {}, options = {}) ->
-    data = CartJS.Utils.wrapKeys(properties, null, null, ['selling_plan'])
-    data.line = line
-    if quantity?
-      data.quantity = quantity
     options.updateCart = true
-    CartJS.Queue.add '/cart/change.js', data, options
+    {item, giftWrap} = CartJS.Utils.getAssociatedGiftWrapWithItem CartJS.cart.items, line
+
+    # Update the gift wrap associated with this item.
+    if CartJS.settings.giftWrap? and giftWrap?
+      newQuantity = if quantity? then quantity else item.quantity
+      updates = {}
+      updates[giftWrap.key] = newQuantity
+      updates[item.key] = newQuantity
+
+      CartJS.Core.updateItemQuantitiesById updates, options
+    else
+      data = CartJS.Utils.wrapKeys(properties, null, null, ['selling_plan'])
+      data.line = line
+      if quantity?
+        data.quantity = quantity
+      CartJS.Queue.add '/cart/change.js', data, options
 
   # Remove an existing line item.
   removeItem: (line, options = {}) ->
-    CartJS.Core.updateItem line, 0, {}, options
+    {item, giftWrap} = CartJS.Utils.getAssociatedGiftWrapWithItem CartJS.cart.items, line
+
+    # Remove the gift wrap associated with this item.
+    if CartJS.settings.giftWrap? and giftWrap?
+      updates = {}
+      updates[giftWrap.key] = 0
+      updates[item.key] = 0
+
+      CartJS.Core.updateItemQuantitiesById updates, options
+    else
+      CartJS.Core.updateItem line, 0, {}, options
 
   # Update item by ID
   updateItemById: (id, quantity, properties = {}, options = {}) ->

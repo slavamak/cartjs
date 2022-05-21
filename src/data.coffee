@@ -28,6 +28,7 @@ CartJS.Data =
     $document[method]('click', '[data-cart-clear]', CartJS.Data.clear)
     $document[method]('change', '[data-cart-toggle]', CartJS.Data.toggle)
     $document[method]('change', '[data-cart-toggle-attribute]', CartJS.Data.toggleAttribute)
+    $document[method]('change', '[data-cart-toggle-gift-wrap]', CartJS.Data.toggleGiftWrap)
     $document[method]('submit', '[data-cart-submit]', CartJS.Data.submit)
 
     # Attach or remove event listeners for data-cart-render events.
@@ -89,6 +90,24 @@ CartJS.Data =
     attribute = $input.attr('data-cart-toggle-attribute')
     CartJS.Core.setAttribute(attribute, if $input.is(':checked') then 'Yes' else '')
 
+  # Handler for [data-cart-toggle-gift-wrap] change events.
+  toggleGiftWrap: (e) ->
+    $input = jQuery(this)
+    giftWrapId = CartJS.settings.giftWrap
+    quantity = $input.attr('data-cart-quantity')
+    title = $input.attr('data-cart-gift-wrap-title')
+    target = CartJS.cart.items.find((item) => 
+      return item.variant_id is giftWrapId and
+      item.properties['Product title'] is title
+    )
+    if $input.is(':checked')
+      unless target?
+        CartJS.Core.addItem(giftWrapId, quantity, {
+          'Product title': title
+        })
+    else
+      if target? then CartJS.Core.removeItemById(giftWrapId)
+
   # Handle for [data-cart-submit] submit events.
   submit: (e) ->
     e.preventDefault()
@@ -115,6 +134,7 @@ CartJS.Data =
     # Build a hash of render context.
     context = {
       'item_count': cart.item_count,
+      'item_count_without_gift_wrap': cart.item_count_without_gift_wrap,
       'total_price': cart.total_price,
       'total_price_money': CartJS.Utils.formatMoney(cart.total_price, CartJS.settings.moneyFormat, 'money_format', if Currency?.currentCurrency? then Currency.currentCurrency),
       'total_price_money_with_currency': CartJS.Utils.formatMoney(cart.total_price, CartJS.settings.moneyWithCurrencyFormat, 'money_with_currency_format', if Currency?.currentCurrency? then Currency.currentCurrency),

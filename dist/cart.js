@@ -16,6 +16,7 @@
           this[key] = value;
         }
       }
+      this.item_count_without_gift_wrap = this.item_count - CartJS.Utils.giftWrapCount(cart.items);
       return this.items = (function() {
         var _i, _len, _ref, _results;
         _ref = cart.items;
@@ -34,6 +35,8 @@
 
   Item = (function() {
     function Item(item) {
+      this.giftWrap = __bind(this.giftWrap, this);
+      this.isGiftWrap = __bind(this.isGiftWrap, this);
       this.propertyArray = __bind(this.propertyArray, this);
       this.update = __bind(this.update, this);
       this.update(item);
@@ -64,6 +67,30 @@
       return _results;
     };
 
+    Item.prototype.isGiftWrap = function() {
+      if ((CartJS.settings.giftWrap != null) && CartJS.settings.giftWrap === this.variant_id) {
+        return true;
+      } else {
+        return false;
+      }
+    };
+
+    Item.prototype.giftWrap = function() {
+      var item, _i, _len, _ref;
+      if (CartJS.settings.giftWrap != null) {
+        _ref = CartJS.cart.items;
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          item = _ref[_i];
+          if (item.variant_id === CartJS.settings.giftWrap && item.properties['Product title'] === this.product_title) {
+            return item;
+          }
+        }
+        return null;
+      } else {
+        return null;
+      }
+    };
+
     return Item;
 
   })();
@@ -78,7 +105,8 @@
       moneyFormat: null,
       moneyWithCurrencyFormat: null,
       weightUnit: 'g',
-      weightPrecision: 0
+      weightPrecision: 0,
+      giftWrap: null
     },
     cart: new Cart()
   };
@@ -241,6 +269,32 @@
           return 'https://cdn.shopify.com/s/images/admin/no-image-large.gif';
         }
       }
+    },
+    giftWrapCount: function(items) {
+      var count, giftWrapId, item, _i, _len;
+      giftWrapId = CartJS.settings.giftWrap;
+      count = 0;
+      if (giftWrapId != null) {
+        for (_i = 0, _len = items.length; _i < _len; _i++) {
+          item = items[_i];
+          if (item.variant_id === giftWrapId) {
+            count += item.quantity;
+          }
+        }
+      }
+      return count;
+    },
+    getAssociatedGiftWrapWithItem: function(items, line) {
+      var item;
+      item = items.find((function(_this) {
+        return function(_, index) {
+          return index + 1 === parseInt(line, 10);
+        };
+      })(this));
+      return {
+        item: item,
+        giftWrap: item != null ? item.giftWrap() : void 0
+      };
     }
   };
 
@@ -328,26 +382,44 @@
       return CartJS.Core.getCart();
     },
     updateItem: function(line, quantity, properties, options) {
-      var data;
+      var data, giftWrap, item, newQuantity, updates, _ref;
       if (properties == null) {
         properties = {};
       }
       if (options == null) {
         options = {};
       }
-      data = CartJS.Utils.wrapKeys(properties, null, null, ['selling_plan']);
-      data.line = line;
-      if (quantity != null) {
-        data.quantity = quantity;
-      }
       options.updateCart = true;
-      return CartJS.Queue.add('/cart/change.js', data, options);
+      _ref = CartJS.Utils.getAssociatedGiftWrapWithItem(CartJS.cart.items, line), item = _ref.item, giftWrap = _ref.giftWrap;
+      if ((CartJS.settings.giftWrap != null) && (giftWrap != null)) {
+        newQuantity = quantity != null ? quantity : item.quantity;
+        updates = {};
+        updates[giftWrap.key] = newQuantity;
+        updates[item.key] = newQuantity;
+        return CartJS.Core.updateItemQuantitiesById(updates, options);
+      } else {
+        data = CartJS.Utils.wrapKeys(properties, null, null, ['selling_plan']);
+        data.line = line;
+        if (quantity != null) {
+          data.quantity = quantity;
+        }
+        return CartJS.Queue.add('/cart/change.js', data, options);
+      }
     },
     removeItem: function(line, options) {
+      var giftWrap, item, updates, _ref;
       if (options == null) {
         options = {};
       }
-      return CartJS.Core.updateItem(line, 0, {}, options);
+      _ref = CartJS.Utils.getAssociatedGiftWrapWithItem(CartJS.cart.items, line), item = _ref.item, giftWrap = _ref.giftWrap;
+      if ((CartJS.settings.giftWrap != null) && (giftWrap != null)) {
+        updates = {};
+        updates[giftWrap.key] = 0;
+        updates[item.key] = 0;
+        return CartJS.Core.updateItemQuantitiesById(updates, options);
+      } else {
+        return CartJS.Core.updateItem(line, 0, {}, options);
+      }
     },
     updateItemById: function(id, quantity, properties, options) {
       var data;
@@ -466,6 +538,7 @@
       $document[method]('click', '[data-cart-clear]', CartJS.Data.clear);
       $document[method]('change', '[data-cart-toggle]', CartJS.Data.toggle);
       $document[method]('change', '[data-cart-toggle-attribute]', CartJS.Data.toggleAttribute);
+      $document[method]('change', '[data-cart-toggle-gift-wrap]', CartJS.Data.toggleGiftWrap);
       $document[method]('submit', '[data-cart-submit]', CartJS.Data.submit);
       return $document[method]('cart.requestComplete', CartJS.Data.render);
     },
@@ -525,6 +598,29 @@
       attribute = $input.attr('data-cart-toggle-attribute');
       return CartJS.Core.setAttribute(attribute, $input.is(':checked') ? 'Yes' : '');
     },
+    toggleGiftWrap: function(e) {
+      var $input, giftWrapId, quantity, target, title;
+      $input = jQuery(this);
+      giftWrapId = CartJS.settings.giftWrap;
+      quantity = $input.attr('data-cart-quantity');
+      title = $input.attr('data-cart-gift-wrap-title');
+      target = CartJS.cart.items.find((function(_this) {
+        return function(item) {
+          return item.variant_id === giftWrapId && item.properties['Product title'] === title;
+        };
+      })(this));
+      if ($input.is(':checked')) {
+        if (target == null) {
+          return CartJS.Core.addItem(giftWrapId, quantity, {
+            'Product title': title
+          });
+        }
+      } else {
+        if (target != null) {
+          return CartJS.Core.removeItemById(giftWrapId);
+        }
+      }
+    },
     submit: function(e) {
       var dataArray, id, properties, quantity;
       e.preventDefault();
@@ -549,6 +645,7 @@
       var context;
       context = {
         'item_count': cart.item_count,
+        'item_count_without_gift_wrap': cart.item_count_without_gift_wrap,
         'total_price': cart.total_price,
         'total_price_money': CartJS.Utils.formatMoney(cart.total_price, CartJS.settings.moneyFormat, 'money_format', (typeof Currency !== "undefined" && Currency !== null ? Currency.currentCurrency : void 0) != null ? Currency.currentCurrency : void 0),
         'total_price_money_with_currency': CartJS.Utils.formatMoney(cart.total_price, CartJS.settings.moneyWithCurrencyFormat, 'money_with_currency_format', (typeof Currency !== "undefined" && Currency !== null ? Currency.currentCurrency : void 0) != null ? Currency.currentCurrency : void 0)

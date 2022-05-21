@@ -13,6 +13,7 @@ CartJS =
     moneyWithCurrencyFormat: null
     weightUnit: 'g'
     weightPrecision: 0
+    giftWrap: null
 
 
   # Our extended cart model.

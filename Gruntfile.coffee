@@ -6,7 +6,7 @@ module.exports = (grunt) ->
 
     meta:
       banner:
-        '// Cart.js\n' +
+        '// Cart.js (customized)\n' +
         '// version: <%= pkg.version %>\n' +
         '// author: <%= pkg.author %>\n' +
         '// license: <%= pkg.licenses[0].type %>\n'
